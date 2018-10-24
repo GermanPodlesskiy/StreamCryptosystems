@@ -46,12 +46,7 @@ namespace StreamCryptosystems
 
             return result;
         }
-
-        static byte BinStringToByte(string value)
-        {
-            return Convert.ToByte(value, 2);
-        }
-
+        
         private void plaintext_TextChanged(object sender, EventArgs e)
         {
             lfsrButton.Enabled = ((keyTextBox.Text != "") && (plaintext.Text != "") && (keyTextBox.Text.Length == keyTextBox.MaxLength));
@@ -60,24 +55,9 @@ namespace StreamCryptosystems
             RC4button.Enabled = ((RC4KeyBox.Text != "") && (plaintext.Text != ""));
         }
 
-        private byte[] TranslitToBinaryCode(string text)
-        {
-            string cipherString = text;
-            string subString;
-            byte[] result = new byte[cipherString.Length / COUNT_BIT];
-            for (int i = 0; i < cipherString.Length / COUNT_BIT; i++)
-            {
-                subString = cipherString.Substring(i * COUNT_BIT, COUNT_BIT);
-                result[i] = BinStringToByte(subString);
-            }
-
-            return result;
-        }
-
         private void keyTextBox_TextChanged(object sender, EventArgs e)
         {
-            keyTextBox.MaxLength = POLYNOMIAL_FIRST[0] + 1;
-            lfsrButton.Enabled = ((keyTextBox.Text != "") && (plaintext.Text != "") && (keyTextBox.Text.Length == keyTextBox.MaxLength));
+            keyTextBox.MaxLength = MaxElement(POLYNOMIAL_FIRST);
         }
 
         private void keyTextBox_KeyPress(object sender, KeyPressEventArgs e)
@@ -112,43 +92,32 @@ namespace StreamCryptosystems
             return resArray;
         }
 
-        private char[] FindThreeKey()
+        private string[] FindThreeKey(string key1, string key2, string key3)
         {
-            string lfsr1 = firstKey.Text,
-                lfsr2 = secondKey.Text,
-                lfsr3 = thirdKey.Text;
-            for (int j = 0; j < plainBytes.Length; j++)
-            {
+            string lfsr1 = key1,
+                lfsr2 = key2,
+                lfsr3 = key3;
 
-            }
-            //lfsr1 = FindKey(lfsr1, plainData, POLYNOMIAL_FIRST);
-            //lfsr1 = ChooseKey(lfsr1, plainData);
-            //lfsr2 = FindKey(lfsr2, plainData, POLYNOMIAL_SECOND);
-            //lfsr2 = ChooseKey(lfsr2, plainData);
-            //lfsr3 = FindKey(lfsr3, plainData, POLYNOMIAL_THIRD);
-            //lfsr3 = ChooseKey(lfsr3, plainData);
+            string[] lfsr1Array = FindKey(lfsr1,POLYNOMIAL_FIRST);
+            string[] lfsr2Array = FindKey(lfsr2, POLYNOMIAL_SECOND);
+            string[] lfsr3Array = FindKey(lfsr3, POLYNOMIAL_THIRD);
 
-            int countOutputElement = (lfsr1.Length > OUTUP_ELEM) ? OUTUP_ELEM : lfsr1.Length;
-            for (int i = 0; i < countOutputElement; i++)
-            {
-                readyFirstKey.Text += lfsr1[i];
-                readySecondKey.Text += lfsr2[i];
-                readyThirdKey.Text += lfsr3[i];
-            }
+            lfsr1 = lfsr1Array[1];
+            lfsr2 = lfsr2Array[1];
+            lfsr3 = lfsr3Array[1];
+
+            key1 = lfsr1Array[0];
+            key2 = lfsr2Array[0];
+            key3 = lfsr3Array[0];
 
             char[] result = lfsr1.ToCharArray();
             for (int i = 0; i < lfsr1.Length; i++)
             {
-                result[i] = char.Parse(((int.Parse((result[i]).ToString()) & int.Parse((lfsr1[i]).ToString())) | (~int.Parse((result[i]).ToString()) & int.Parse((lfsr3[i]).ToString()))).ToString());
+                result[i] = char.Parse(((int.Parse((result[i]).ToString()) & int.Parse((lfsr2[i]).ToString())) | (~int.Parse((result[i]).ToString()) & int.Parse((lfsr3[i]).ToString()))).ToString());
             }
 
-            countOutputElement = (result.Length > OUTUP_ELEM) ? OUTUP_ELEM : result.Length;
-            for (int i = 0; i < countOutputElement; i++)
-            {
-                resultKey.Text += result[i];
-            }
-
-            return result;
+            string[] resultArray = {new string(result), key1, key2, key3};
+            return resultArray;
         }
 
         public string RFSRCipher(string newKey, string text)
@@ -272,17 +241,33 @@ namespace StreamCryptosystems
 
         private void geffeButton_Click(object sender, EventArgs e)
         {
-            //ciphertext.Text = "";
-            //for(int j = 0; j < plainBytes)
-            //char[] key = FindThreeKey();
-            //string newKey = new string(key);
-            //cipherData = RFSRCipher(newKey);
+            ciphertext.Text = "";
+            string key1 = firstKey.Text,
+                key2 = secondKey.Text,
+                key3 = thirdKey.Text;
 
-            //int countOutputElement = (cipherData.Length > OUTUP_ELEM) ? OUTUP_ELEM : cipherData.Length;
-            //for (int i = 0; i < countOutputElement; i++)
-            //{
-            //    ciphertext.Text += cipherData[i];
-            //}
+            cipherBytes = new byte[plainBytes.Length];
+
+            for (int j = 0; j < plainBytes.Length; j++)
+            {
+                string[] newKeyArray = FindThreeKey(key1,key2,key3);
+                string newKey = newKeyArray[0];
+                key1 = newKeyArray[1];
+                key2 = newKeyArray[2];
+                key3 = newKeyArray[3];
+
+                string tempString = RFSRCipher(newKey,ByteToStringBin(plainBytes[j]));
+                cipherBytes[j] = Convert.ToByte(tempString,2);
+
+                if (j < OUTUP_ELEM)
+                {
+                    readyFirstKey.Text += key1;
+                    readySecondKey.Text += key2;
+                    readyThirdKey.Text += key3;
+                    resultKey.Text += newKey;
+                    ciphertext.Text += tempString;
+                }
+            }
         }
 
         private void firstKey_TextChanged(object sender, EventArgs e)
@@ -301,7 +286,7 @@ namespace StreamCryptosystems
             
             for (int i = 0; i < array.Length; i++)
             {
-                cmpElem = (array[i] > cmpElem) ? i : cmpElem;
+                cmpElem = (array[i] > cmpElem) ? array[i] + 1 : cmpElem;
             }
             
             return cmpElem + 1;
@@ -321,21 +306,21 @@ namespace StreamCryptosystems
 
         private void RC4button_Click(object sender, EventArgs e)
         {
-            //ciphertext.Text = "";
-            //RC4KeyTextBox.Text = "";
-            //byte[] newKey = RC4FindKey(Encoding.Default.GetBytes(RC4KeyBox.Text));
+            ciphertext.Text = "";
+            RC4KeyTextBox.Text = "";
+            byte[] newKey = RC4FindKey(Encoding.Default.GetBytes(RC4KeyBox.Text));
 
-            //int countOutputElement = (newKey.Length > OUTUP_ELEM) ? OUTUP_ELEM : newKey.Length;
-            //for (int i = 0; i < countOutputElement; i++)
-            //    RC4KeyTextBox.Text += newKey[i] + " ";
+            int countOutputElement = (newKey.Length > OUTUP_ELEM) ? OUTUP_ELEM : newKey.Length;
+            for (int i = 0; i < countOutputElement; i++)
+                RC4KeyTextBox.Text += newKey[i] + " ";
 
-            //byte[] tempBytes = RC4Cipher(newKey);
-            //string tempString = BytesToStringBin(tempBytes, tempBytes.Length);
-            //cipherData = tempString;
+            byte[] tempBytes = RC4Cipher(newKey);
+            string tempString = BytesToStringBin(tempBytes, tempBytes.Length);
+            cipherData = tempString;
 
-            //countOutputElement = (tempString.Length > OUTUP_ELEM) ? OUTUP_ELEM : tempString.Length;
-            //for (int i = 0; i < countOutputElement; i++)
-            //    ciphertext.Text += tempString[i];
+            countOutputElement = (tempString.Length > OUTUP_ELEM) ? OUTUP_ELEM : tempString.Length;
+            for (int i = 0; i < countOutputElement; i++)
+                ciphertext.Text += tempString[i];
         }
 
         private OpenFileDialog InitializeOpenFile()
