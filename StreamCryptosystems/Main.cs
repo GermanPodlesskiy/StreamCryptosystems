@@ -19,11 +19,13 @@ namespace StreamCryptosystems
         private static int[] POLYNOMIAL_FIRST = { 24, 2 };
         private static int[] POLYNOMIAL_SECOND = { 32, 12};
         private static int[] POLYNOMIAL_THIRD = { 22, 4 };
-        private const int OUTUP_ELEM = 200;
+        private const int OUTUP_ELEM = 25;
         private const int COUNT_SYMBOLS_S_BOX = 256;
         private string fileName;
         private byte[] plainBytes;
-        private string key, plainData, cipherData;
+        private byte[] cipherBytes;
+        //private string key, plainData, cipherData;
+        private string key;
         private string errorEmptyFile = "The file is empty and does not contain any text for encryption / decryption.", errorCaption = "Error!",
             errorFormat = "The input string was not in the correct format.";
 
@@ -35,25 +37,11 @@ namespace StreamCryptosystems
             saveFile = InitializeSaveFile();
         }
 
-        static string BytesToStringBin(byte[] data, int length)
+        static string ByteToStringBin(byte data)
         {
-            string result = "";
-            for (int i = 0; i < length; i++)
-                result += ByteToStringBin(data[i]);
-
-            return result;
-        }
-
-        static string ByteToStringBin(byte value)
-        {
-            string result = "";
-            while (value != 0)
-            {
-                result = (value % 2 == 1) ? '1' + result : '0' + result;
-                value /= 2;
-            }
+            string result = Convert.ToString(data,2);
             int j = COUNT_BIT - result.Length;
-            for (int i = 0; i < j; i++)
+            for (int k = 0; k < j; k++)
                 result = '0' + result;
 
             return result;
@@ -61,14 +49,7 @@ namespace StreamCryptosystems
 
         static byte BinStringToByte(string value)
         {
-            byte result = 0, number = 1;
-            for (int i = value.Length - 1; i >= 0; i--)
-            {
-                result += (byte)((value[i] == '1') ? number : 0);
-                number *= 2;
-            }
-
-            return result;
+            return Convert.ToByte(value, 2);
         }
 
         private void plaintext_TextChanged(object sender, EventArgs e)
@@ -106,14 +87,14 @@ namespace StreamCryptosystems
                 e.Handled = true;
         }
 
-        static string FindKey(string key,string text, int[] polynomial)
+        static string[] FindKey(string key, int[] polynomial)
         {
             int numberOfAddedKeys = 0;
             char[] keyChars = key.ToCharArray();
             string result = "";
             char tempChar;
             
-            while (numberOfAddedKeys < Math.Pow(2,polynomial[0]+1) && (numberOfAddedKeys < text.Length))
+            while (numberOfAddedKeys < COUNT_BIT)
             {
                 result += keyChars[0];
                 tempChar = keyChars[keyChars.Length - polynomial[0] - 1];
@@ -126,8 +107,9 @@ namespace StreamCryptosystems
                 
                 numberOfAddedKeys++;
             }
-            
-            return result;
+
+            string[] resArray = {new string(keyChars),result};
+            return resArray;
         }
 
         private char[] FindThreeKey()
@@ -135,13 +117,16 @@ namespace StreamCryptosystems
             string lfsr1 = firstKey.Text,
                 lfsr2 = secondKey.Text,
                 lfsr3 = thirdKey.Text;
+            for (int j = 0; j < plainBytes.Length; j++)
+            {
 
-            lfsr1 = FindKey(lfsr1,plainData, POLYNOMIAL_FIRST);
-            lfsr1 = ChooseKey(lfsr1, plainData);
-            lfsr2 = FindKey(lfsr2,plainData, POLYNOMIAL_SECOND);
-            lfsr2 = ChooseKey(lfsr2,plainData);
-            lfsr3 = FindKey(lfsr3, plainData,POLYNOMIAL_THIRD);
-            lfsr3 = ChooseKey(lfsr3, plainData);
+            }
+            //lfsr1 = FindKey(lfsr1, plainData, POLYNOMIAL_FIRST);
+            //lfsr1 = ChooseKey(lfsr1, plainData);
+            //lfsr2 = FindKey(lfsr2, plainData, POLYNOMIAL_SECOND);
+            //lfsr2 = ChooseKey(lfsr2, plainData);
+            //lfsr3 = FindKey(lfsr3, plainData, POLYNOMIAL_THIRD);
+            //lfsr3 = ChooseKey(lfsr3, plainData);
 
             int countOutputElement = (lfsr1.Length > OUTUP_ELEM) ? OUTUP_ELEM : lfsr1.Length;
             for (int i = 0; i < countOutputElement; i++)
@@ -166,23 +151,10 @@ namespace StreamCryptosystems
             return result;
         }
 
-        private string ChooseKey(string newKey, string sourceText)
+        public string RFSRCipher(string newKey, string text)
         {
-            string result = "";
-            int countKeyInText = sourceText.Length / newKey.Length;
-            for (int i = 0; i < countKeyInText; i++)
-                result = string.Concat(result, newKey);
-
-            countKeyInText = sourceText.Length % newKey.Length;
-            result = string.Concat(result, newKey.Substring(0, countKeyInText));
-
-            return result;
-        }
-
-        public string RFSRCipher(string newKey)
-        {
-            char[] result = new char[plainData.Length];
-            char[] sourceText = plainData.ToCharArray();
+            char[] result = new char[text.Length];
+            char[] sourceText = text.ToCharArray();
             char[] key = newKey.ToCharArray();
             try
             {
@@ -272,42 +244,45 @@ namespace StreamCryptosystems
             lsfrKeyTextBox.Text = "";
             ciphertext.Text = "";
             key = keyTextBox.Text;
-            string newKey = FindKey(key,plainData,POLYNOMIAL_FIRST);
-            newKey = ChooseKey(newKey, plainData);
+            cipherBytes = new byte[plainBytes.Length];
+            for (int j = 0; j < plainBytes.Length; j++)
+            {
+                string[] newKeyArray = FindKey(key, POLYNOMIAL_FIRST);
+                string newKey = newKeyArray[1];
+                key = newKeyArray[0];
+                
+                string tempString = RFSRCipher(newKey,ByteToStringBin(plainBytes[j]));
+                cipherBytes[j] = Convert.ToByte(tempString,2);
 
-            int countOutputElement = (newKey.Length > OUTUP_ELEM) ? OUTUP_ELEM : newKey.Length;
-            for (int i = 0; i < countOutputElement; i++)
-                lsfrKeyTextBox.Text += newKey[i];
-
-            string tempString = RFSRCipher(newKey);
-            cipherData = tempString;
-
-            countOutputElement = (tempString.Length > OUTUP_ELEM) ? OUTUP_ELEM : tempString.Length;
-            for (int i = 0; i < countOutputElement; i++)
-                ciphertext.Text += tempString[i];
+                if (j < OUTUP_ELEM)
+                {
+                    lsfrKeyTextBox.Text += newKey;
+                    ciphertext.Text += tempString;
+                }
+            }
         }
 
         private void saveAsButton_Click(object sender, EventArgs e)
         {
             if (saveFile.ShowDialog(this) == DialogResult.OK)
             {
-                byte[] cipher = TranslitToBinaryCode(cipherData);
-                File.WriteAllBytes(saveFile.FileName, cipher);
+                File.WriteAllBytes(saveFile.FileName, cipherBytes);
             }
         }
 
         private void geffeButton_Click(object sender, EventArgs e)
         {
-            ciphertext.Text = "";
-            char[] key = FindThreeKey();
-            string newKey = new string(key);
-            cipherData = RFSRCipher(newKey);
+            //ciphertext.Text = "";
+            //for(int j = 0; j < plainBytes)
+            //char[] key = FindThreeKey();
+            //string newKey = new string(key);
+            //cipherData = RFSRCipher(newKey);
 
-            int countOutputElement = (cipherData.Length > OUTUP_ELEM) ? OUTUP_ELEM : cipherData.Length;
-            for (int i = 0; i < countOutputElement; i++)
-            {
-                ciphertext.Text += cipherData[i];
-            }
+            //int countOutputElement = (cipherData.Length > OUTUP_ELEM) ? OUTUP_ELEM : cipherData.Length;
+            //for (int i = 0; i < countOutputElement; i++)
+            //{
+            //    ciphertext.Text += cipherData[i];
+            //}
         }
 
         private void firstKey_TextChanged(object sender, EventArgs e)
@@ -346,21 +321,21 @@ namespace StreamCryptosystems
 
         private void RC4button_Click(object sender, EventArgs e)
         {
-            ciphertext.Text = "";
-            RC4KeyTextBox.Text = "";
-            byte[] newKey = RC4FindKey(Encoding.Default.GetBytes(RC4KeyBox.Text));
-            
-            int countOutputElement = (newKey.Length > OUTUP_ELEM) ? OUTUP_ELEM : newKey.Length;
-            for (int i = 0; i < countOutputElement; i++)
-                RC4KeyTextBox.Text += newKey[i] + " ";
+            //ciphertext.Text = "";
+            //RC4KeyTextBox.Text = "";
+            //byte[] newKey = RC4FindKey(Encoding.Default.GetBytes(RC4KeyBox.Text));
 
-            byte[] tempBytes = RC4Cipher(newKey);
-            string tempString = BytesToStringBin(tempBytes, tempBytes.Length);
-            cipherData = tempString;
+            //int countOutputElement = (newKey.Length > OUTUP_ELEM) ? OUTUP_ELEM : newKey.Length;
+            //for (int i = 0; i < countOutputElement; i++)
+            //    RC4KeyTextBox.Text += newKey[i] + " ";
 
-            countOutputElement = (tempString.Length > OUTUP_ELEM) ? OUTUP_ELEM : tempString.Length;
-            for (int i = 0; i < countOutputElement; i++)
-                ciphertext.Text += tempString[i];
+            //byte[] tempBytes = RC4Cipher(newKey);
+            //string tempString = BytesToStringBin(tempBytes, tempBytes.Length);
+            //cipherData = tempString;
+
+            //countOutputElement = (tempString.Length > OUTUP_ELEM) ? OUTUP_ELEM : tempString.Length;
+            //for (int i = 0; i < countOutputElement; i++)
+            //    ciphertext.Text += tempString[i];
         }
 
         private OpenFileDialog InitializeOpenFile()
@@ -391,15 +366,15 @@ namespace StreamCryptosystems
                 plainBytes = File.ReadAllBytes(openFile.FileName);
                 if (plainBytes.Length != 0)
                 {
-                    byte[] temp = new byte[(plainBytes.Length)];
-                    Array.Copy(plainBytes, temp, temp.Length);
-                    plainData = BytesToStringBin(temp, plainBytes.Length);
-                    int countOutputElement = (plainBytes.Length > OUTUP_ELEM)
-                        ? OUTUP_ELEM
-                        : plainData.Length;
-                    for (int i = 0; i < countOutputElement; i++)
-                        plaintext.Text += plainData[i];
-                }else
+                    int i = 0;
+                    while (i < OUTUP_ELEM && i < plainBytes.Length)
+                    {
+
+                        plaintext.Text += ByteToStringBin(plainBytes[i]);
+                        i++;
+                    }
+                }
+                else
                     EmptyFile();
             }
         }
